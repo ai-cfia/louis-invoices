@@ -10,10 +10,10 @@ def suppress_none(value):
     return s
 
 if __name__ == "__main__":
-    with open('results.json') as f:
+    with open('fillin.json') as f:
         results = json.load(f)
 
-    fields = ['customer_name', 'customer_address', 'due_date', 'filename', 'buxus_count']
+    fields = ['customer_name', 'customer_address', 'shipping_address', 'shipping_address_recipient', 'date', 'filename', 'buxus_count']
     print(','.join(fields))
     for extract in results:
         print(','.join([suppress_none(extract[field]) for field in fields]))

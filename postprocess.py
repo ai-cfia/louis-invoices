@@ -182,11 +182,10 @@ def print_invoice(idx, invoice):
                     )
                 )
             if item_description and regex.match('(buxus|boxwood){e<=1}', item_description.value):
-
                 buxus_items.append({
-                    'item_description': print_item_description(item_description),
-                    'item_quantity': print_item_quantity(item_quantity),
-                    'unit': print_unit(unit),
+                    'item_description': print_field(item_description),
+                    'item_quantity': compute_quantity(item_quantity, amount, unit_price),
+                    'unit': print_field(unit),
                     'unit_price': print_currency(unit_price),
                     'amount': print_currency(amount)
                 })
@@ -269,34 +268,36 @@ def print_invoice(idx, invoice):
     return {
         'customer_name': customer_name_value,
         'customer_address': print_address_value(customer_address),
-        'due_date': print_date_value(due_date),
+        'shipping_address': print_address_value(shipping_address),
+        'shipping_address_recipient': print_field(shipping_address_recipient),
+        'date': print_date_value(invoice_date or service_end_date or due_date),
         'buxus_items': buxus_items
     }
 
-def print_unit(unit):
-    if unit:
-        return unit.value
+def compute_quantity(item_quantity, amount, unit_price):
+    if item_quantity and item_quantity.value:
+        return int(item_quantity.value)
+    else:
+        if amount and amount.value and unit_price and unit_price.value:
+            return int(print_currency(amount) / print_currency(unit_price))
 
-def print_item_quantity(item_quantity):
-    if item_quantity:
-        return item_quantity.value
-
-def print_item_description(item_description):
-    if item_description:
-        return item_description.value
+def print_field(field):
+    if field:
+        return field.value
 
 def print_date_value(date):
-    if date:
+    if date and date.value:
         return date.value.isoformat()
 
 def print_currency(currency):
-    if currency:
+    if currency and currency.value:
         return currency.value.amount
 
 def print_address_value(address):
-    if address:
+    if address and address.value:
         address_value = address.value
-        return f"{address_value.street_address}, {address_value.city}, {address_value.state}, {address_value.postal_code}"
+        fieldnames = ['street_address', 'city', 'state', 'postal_code']
+        return ' '.join(filter(None, [getattr(address.value, fieldname) for fieldname in fieldnames if fieldname]))
 
 def item_quantity_selector(item):
     if item['item_quantity']:
@@ -307,13 +308,12 @@ def print_invoices(filename, invoices, selected_extracts):
     for idx, invoice in enumerate(invoices.documents):
         extract = print_invoice(idx, invoice)
         extract['filename'] = filename
-        if len(extract['buxus_items']) > 0:
-            extract['buxus_count'] = sum(map(item_quantity_selector, extract['buxus_items']))
-            selected_extracts.append(extract)
+        extract['buxus_count'] = sum(map(item_quantity_selector, extract['buxus_items']))
+        selected_extracts.append(extract)
 
 if __name__ == "__main__":
     source_dir = 'data/pages/'
-    #filelist = ['NS-005.pdf.pickle']
+    # filelist = ['NFLD-001.pdf.pickle']
     filelist = os.listdir(source_dir)
     selected_extracts = []
     for input in filelist:
@@ -325,5 +325,5 @@ if __name__ == "__main__":
             invoices = pickle.load(picklefile)
         print_invoices(input, invoices, selected_extracts)
         print(selected_extracts)
-    with open('results.json', 'w+') as f:
+    with open('postprocess.json', 'w+') as f:
         json.dump(selected_extracts, f)
