@@ -2,9 +2,18 @@ import pickle
 import regex
 import os
 import json
+import datetime
+import parsedatetime
 
-def print_invoice(idx, invoice):
-    
+calendar = parsedatetime.Calendar()
+
+def parse_to_isoformat(datestr):
+    if datestr is None:
+        return None
+    result, code = calendar.parse(datestr)
+    return datetime.datetime(*result[:6]).isoformat()[:10]
+
+def extract_invoice(idx, invoice):
     print("--------Recognizing invoice #{}--------".format(idx + 1))
     vendor_name = invoice.fields.get("VendorName")
     if vendor_name:
@@ -275,7 +284,8 @@ def print_invoice(idx, invoice):
     }
 
 def compute_quantity(item_quantity, amount, unit_price):
-    if item_quantity and item_quantity.value:
+    # we don't accept fractional values
+    if item_quantity and item_quantity.value and int(item_quantity.value) == item_quantity.value:
         return int(item_quantity.value)
     else:
         if amount and amount.value and unit_price and unit_price.value:
@@ -304,12 +314,56 @@ def item_quantity_selector(item):
         return item['item_quantity']
     return 0
 
-def print_invoices(filename, invoices, selected_extracts):
+def extract_invoices(filename, invoices, selected_extracts):
+    kv = dict([(kv.key.content, kv.value.content) for kv in invoices.key_value_pairs if kv.value])
     for idx, invoice in enumerate(invoices.documents):
-        extract = print_invoice(idx, invoice)
+        extract = extract_invoice(idx, invoice)
+        extract['ship_date'] = parse_to_isoformat(
+            kv.get('SHIP DATE') or kv.get('DATE SHIPPED') or kv.get("DATE D'EXPÉDITION"))
+        if extract['shipping_address_recipient'] is None:
+            extract['shipping_address_recipient'] = find_paragraph_value(invoices, 'EXPÉDIER À')
+        
+        # only one known case of this
+        if extract['shipping_address'] is not None and len(extract['shipping_address']) < 5:
+            extract['shipping_address'] = extract['customer_address']
         extract['filename'] = filename
         extract['buxus_count'] = sum(map(item_quantity_selector, extract['buxus_items']))
         selected_extracts.append(extract)
+
+def find_paragraph_value(invoices, startswith):
+    gen = ( para for para in invoices.paragraphs if para.content.startswith(startswith))
+    para = next(gen, None)
+    if para is None:
+        return None
+    return para.content[len(startswith)+1:]
+
+def fillin(invoices):
+    invoices.sort(key=lambda x: x['filename'])
+    lookup_address = {}
+    for index, invoice in enumerate(invoices):
+        if invoice['shipping_address'] is not None and len(invoice['shipping_address']) > 0 and invoice['shipping_address_recipient'] is not None: 
+            lookup_address[invoice['shipping_address_recipient']] = invoice['shipping_address']
+    for index, invoice in enumerate(invoices):
+        if invoice['shipping_address'] is None:
+            if invoice['shipping_address_recipient'] is not None:
+                prev_invoice = invoices[index-1]
+                if prev_invoice['shipping_address_recipient'] == invoice['shipping_address_recipient']:
+                    invoice['shipping_address'] = prev_invoice['shipping_address']
+                    prev_invoice['buxus_items'].extend(invoice['buxus_items'])
+                    total = sum([i['item_quantity'] for i in invoice['buxus_items']])
+                    prev_invoice['buxus_count'] += total
+                    del invoices[index]
+    for index, invoice in enumerate(invoices):
+        if invoice['shipping_address'] is None: 
+            candidate_address = lookup_address.get(invoice['shipping_address_recipient'])
+            if candidate_address:
+                invoice['shipping_address'] = candidate_address
+            elif invoice['shipping_address_recipient'] is not None:
+                r = '(' + regex.escape(invoice['shipping_address_recipient']) + '){e<=2}'
+                for (key, value) in lookup_address.items():
+                    if regex.match(r, key):
+                        invoice['shipping_address'] = value
+                        break
 
 if __name__ == "__main__":
     source_dir = 'data/pages/'
@@ -323,7 +377,7 @@ if __name__ == "__main__":
         print(input_fullpath)
         with open(input_fullpath, 'rb') as picklefile:
             invoices = pickle.load(picklefile)
-        print_invoices(input, invoices, selected_extracts)
-        print(selected_extracts)
+        extract_invoices(input, invoices, selected_extracts)
+    fillin(selected_extracts)
     with open('postprocess.json', 'w+') as f:
         json.dump(selected_extracts, f)

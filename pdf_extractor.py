@@ -23,9 +23,6 @@ def format_polygon(polygon):
 
 
 def analyze_invoice(fileHandle):
-
-    invoiceUrl = "https://raw.githubusercontent.com/Azure-Samples/cognitive-services-REST-api-samples/master/curl/form-recognizer/sample-invoice.pdf"
-
     document_analysis_client = DocumentAnalysisClient(
         endpoint=endpoint, credential=AzureKeyCredential(key)
     )
@@ -40,7 +37,9 @@ def analyze_invoice(fileHandle):
 if __name__ == "__main__":
     dirname, filename = os.path.split(os.path.abspath(__file__))
     source_dir = "data/pages/"
-    for filename in os.listdir(source_dir):
+    filenames = os.listdir(source_dir)
+    filenames = ['NewBrunswick-086.pdf']
+    for filename in filenames:
         if not filename.endswith('pdf'):
             continue
         fullpath = os.path.join(dirname, source_dir, filename)

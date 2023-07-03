@@ -1,6 +1,6 @@
 import json
 
-def suppress_none(value):
+def safe_format(value):
     if value is None:
         return ''
     s = str(value)
@@ -10,10 +10,11 @@ def suppress_none(value):
     return s
 
 if __name__ == "__main__":
-    with open('fillin.json') as f:
+    with open('postprocess.json') as f:
         results = json.load(f)
 
-    fields = ['customer_name', 'customer_address', 'shipping_address', 'shipping_address_recipient', 'date', 'filename', 'buxus_count']
+    fields = ['shipping_address_recipient', 'ship_date', 'shipping_address', 'buxus_count', 'customer_name', 'filename']
     print(','.join(fields))
     for extract in results:
-        print(','.join([suppress_none(extract[field]) for field in fields]))
+        if extract['buxus_count'] > 0:
+            print(','.join([safe_format(extract[field]) for field in fields]))
