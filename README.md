@@ -16,8 +16,10 @@ pdftk <input file> burst output pages/<PREFIX>-%03d.pdf
 
 ## pipeline
 
-* pdf_extractor
+* pdf_extractor.py
   * generate pickles from form recognizer
-* postprocess
-* fillin
-* report 
+* postprocess.py
+  * extract information, combining multi-pages invoices
+* report.py
+  * generate csv output report
+* verify.py
