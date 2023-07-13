@@ -38,7 +38,6 @@ if __name__ == "__main__":
     dirname, filename = os.path.split(os.path.abspath(__file__))
     source_dir = "data/pages/"
     filenames = os.listdir(source_dir)
-    filenames = ['NewBrunswick-086.pdf']
     for filename in filenames:
         if not filename.endswith('pdf'):
             continue
