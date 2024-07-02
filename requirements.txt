@@ -3,7 +3,7 @@ azure-common==1.1.28
 azure-core==1.27.1
 certifi==2023.7.22
 charset-normalizer==3.1.0
-idna==3.4
+idna==3.7
 isodate==0.6.1
 msrest==0.7.1
 oauthlib==3.2.2
